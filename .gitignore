@@ -1,0 +1,23 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Data (too large for git)
+data/raw/
+data/processed/*.csv
+*.parquet
+
+# MLflow
+mlruns/
+
+# Environment
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
