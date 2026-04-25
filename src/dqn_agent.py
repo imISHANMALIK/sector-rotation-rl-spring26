@@ -57,7 +57,7 @@ class DQNAgent:
         lr: float             = 1e-3,
         gamma: float          = 0.99,
         epsilon: float        = 1.0,
-        epsilon_min: float    = 0.05,
+        epsilon_min: float    = 0.1,
         epsilon_decay: float  = 0.995,
         buffer_capacity: int  = 10_000,
         batch_size: int       = 64,

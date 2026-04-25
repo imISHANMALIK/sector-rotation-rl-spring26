@@ -1,0 +1,21 @@
+# Day 3 baseline hyperparameters
+training:
+  total_episodes: 1500
+  gamma: 0.99
+  lr: 1.0e-3
+  buffer_size: 10000
+  batch_size: 64
+  hidden_dim: 128
+  eps_start: 1.0
+  eps_end: 0.1
+  eps_decay_fraction: 0.80    # linear decay over 80% of episodes
+  target_update_freq: 100
+  grad_clip: 1.0
+  log_interval: 100
+  checkpoint_freq: 500
+
+environment:
+  override_threshold: 2.5
+  sortino_window: 20
+  train_end: "2023-12-31"
+  test_start: "2024-01-01"

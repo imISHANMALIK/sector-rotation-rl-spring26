@@ -76,7 +76,7 @@ class SectorRotationEnv(gym.Env):
             col = self._df[f"iv_{s}"].iloc[start: t + 1]
             mu, sigma = col.mean(), col.std()
             val = float(self._df[f"iv_{s}"].iloc[t])
-            zscores.append(0.0 if sigma == 0 else float((val - mu) / sigma))
+            zscores.append(0.0 if not (sigma > 0) else float((val - mu) / sigma))
         return np.array(zscores, dtype=np.float32)
 
     def _compute_realized_vols(self, t: int, window: int = 20) -> np.ndarray:
