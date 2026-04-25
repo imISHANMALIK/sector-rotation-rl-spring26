@@ -1,0 +1,13 @@
+{
+  "total_return": 0.23513845822530854,
+  "ann_return": 0.23722694464886906,
+  "sortino": 2.5681845942740487,
+  "spy_return": 0.2678933205504911,
+  "action_distribution": {
+    "CASH": 39,
+    "XLV": 122,
+    "XLF": 53,
+    "XLK": 36
+  },
+  "n_override": 2
+}

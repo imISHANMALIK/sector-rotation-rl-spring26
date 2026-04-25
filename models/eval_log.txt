@@ -1,0 +1,22 @@
+Test set: 251 trading days (2024 holdout)
+Agent loaded ← models/dqn_final.pth
+
+==================================================
+EVALUATION RESULTS — 2024 Holdout
+==================================================
+Total Return:      +23.51%
+Annualised Return: +23.72%
+Sortino Ratio:     2.568
+SPY Benchmark:     +26.79%
+Alpha vs SPY:      -3.28%
+
+Action Distribution (250 days):
+  CASH  :   39 days  (15.6%)
+  XLF   :   53 days  (21.2%)
+  XLK   :   36 days  (14.4%)
+  XLV   :  122 days  (48.8%)
+
+Override triggers: 2
+Equity curve saved → models/equity_curve_2024.png
+
+Results saved → models/eval_results.json

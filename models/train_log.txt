@@ -1,0 +1,28 @@
+Environment: 986 steps/episode  (train mode)
+Hyperparams: γ=0.99, lr=0.001, buf=10000, batch=64, hidden=128
+Eps: 1.0 → 0.1 over 1200 episodes
+
+Ep   100/1500 | AvgRew: +20.0471 | Loss: 0.01347 | Eps: 0.926 | Q-max: 4.288 | Actions: [XLK:25% | XLF:25% | XLV:25% | CASH:26%] | 59s
+Ep   200/1500 | AvgRew: +21.5738 | Loss: 0.00975 | Eps: 0.851 | Q-max: 4.377 | Actions: [XLK:25% | XLF:25% | XLV:25% | CASH:26%] | 120s
+Ep   300/1500 | AvgRew: +22.7761 | Loss: 0.00873 | Eps: 0.776 | Q-max: 5.059 | Actions: [XLK:25% | XLF:25% | XLV:25% | CASH:26%] | 552s
+Ep   400/1500 | AvgRew: +24.1954 | Loss: 0.00898 | Eps: 0.701 | Q-max: 4.845 | Actions: [XLK:25% | XLF:25% | XLV:25% | CASH:25%] | 613s
+Ep   500/1500 | AvgRew: +25.3704 | Loss: 0.00788 | Eps: 0.626 | Q-max: 4.860 | Actions: [XLK:26% | XLF:25% | XLV:24% | CASH:25%] | 674s
+Agent saved → models/dqn_ep500.pth
+Ep   600/1500 | AvgRew: +26.9558 | Loss: 0.00741 | Eps: 0.551 | Q-max: 4.652 | Actions: [XLK:25% | XLF:25% | XLV:24% | CASH:26%] | 736s
+Ep   700/1500 | AvgRew: +28.8370 | Loss: 0.00750 | Eps: 0.476 | Q-max: 4.989 | Actions: [XLK:25% | XLF:25% | XLV:24% | CASH:26%] | 797s
+Ep   800/1500 | AvgRew: +28.8611 | Loss: 0.00808 | Eps: 0.401 | Q-max: 5.389 | Actions: [XLK:25% | XLF:25% | XLV:25% | CASH:25%] | 859s
+Ep   900/1500 | AvgRew: +31.3874 | Loss: 0.00809 | Eps: 0.326 | Q-max: 6.446 | Actions: [XLK:25% | XLF:25% | XLV:24% | CASH:25%] | 1051s
+Ep  1000/1500 | AvgRew: +32.4343 | Loss: 0.00909 | Eps: 0.251 | Q-max: 6.315 | Actions: [XLK:26% | XLF:25% | XLV:23% | CASH:26%] | 1114s
+Agent saved → models/dqn_ep1000.pth
+Ep  1100/1500 | AvgRew: +34.2051 | Loss: 0.00854 | Eps: 0.176 | Q-max: 5.336 | Actions: [XLK:26% | XLF:25% | XLV:23% | CASH:26%] | 1177s
+Ep  1200/1500 | AvgRew: +37.0853 | Loss: 0.00925 | Eps: 0.101 | Q-max: 6.779 | Actions: [XLK:25% | XLF:26% | XLV:24% | CASH:26%] | 1267s
+Ep  1300/1500 | AvgRew: +38.1212 | Loss: 0.00917 | Eps: 0.100 | Q-max: 6.969 | Actions: [XLK:25% | XLF:25% | XLV:22% | CASH:28%] | 1329s
+Ep  1400/1500 | AvgRew: +37.7706 | Loss: 0.00845 | Eps: 0.100 | Q-max: 6.661 | Actions: [XLK:26% | XLF:25% | XLV:22% | CASH:27%] | 1392s
+Ep  1500/1500 | AvgRew: +38.6226 | Loss: 0.00884 | Eps: 0.100 | Q-max: 7.275 | Actions: [XLK:26% | XLF:24% | XLV:25% | CASH:25%] | 1455s
+Agent saved → models/dqn_ep1500.pth
+Agent saved → models/dqn_final.pth
+Training curves saved → models/training_curves.png
+
+Done in 24.2 min
+Last-100-ep avg reward : 38.6226
+Final epsilon          : 0.100
