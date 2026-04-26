@@ -20,4 +20,5 @@ mlruns/
 Thumbs.db
 
 # IDE
-.vscode/settings.json
+.vscode/settings.jsonnotebooks/*.png
+notebooks/*.csv
