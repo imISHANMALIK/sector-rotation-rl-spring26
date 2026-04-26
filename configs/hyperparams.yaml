@@ -1,21 +1,34 @@
-# Day 3 baseline hyperparameters
-training:
-  total_episodes: 1500
-  gamma: 0.99
-  lr: 1.0e-3
-  buffer_size: 10000
-  batch_size: 64
-  hidden_dim: 128
-  eps_start: 1.0
-  eps_end: 0.1
-  eps_decay_fraction: 0.80    # linear decay over 80% of episodes
-  target_update_freq: 100
-  grad_clip: 1.0
-  log_interval: 100
-  checkpoint_freq: 500
+# Sector Rotation RL — Default Hyperparameters
 
-environment:
-  override_threshold: 2.5
-  sortino_window: 20
-  train_end: "2023-12-31"
-  test_start: "2024-01-01"
+# Environment
+state_dim: 9
+action_dim: 4
+override_threshold: 2.5
+
+# DQN Architecture
+hidden_dim: 128
+num_layers: 2
+
+# Training
+learning_rate: 0.001
+gamma: 0.99
+batch_size: 64
+buffer_size: 10000
+target_update: 100
+num_episodes: 2000
+eps_start: 1.0
+eps_end: 0.05
+eps_decay_frac: 0.8
+grad_clip: 1.0
+
+# Reward Shaping
+reward_type: 'sortino'
+sortino_window: 20
+sortino_target_return: 0.0
+
+# Evaluation
+train_end_date: '2023-12-31'
+test_start_date: '2024-01-01'
+
+# Seeds
+seed: 42
