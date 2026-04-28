@@ -20,5 +20,10 @@ mlruns/
 Thumbs.db
 
 # IDE
-.vscode/settings.jsonnotebooks/*.png
+.vscode/settings.json
+notebooks/*.png
 notebooks/*.csv
+
+# Frontend build artifacts & dependencies
+demo/web/node_modules/
+demo/web/.next/
