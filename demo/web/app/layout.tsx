@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Sector Rotation RL — Live Dashboard",
+  title: "Lennox Capital — Live Dashboard",
   description: "Risk-Aware Deep Q-Network for Dynamic Asset Allocation",
 };
 

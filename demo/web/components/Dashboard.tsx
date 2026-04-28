@@ -1,13 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Activity, ChevronDown, ChevronUp, Pause, Play, RefreshCw, TrendingDown, TrendingUp, Zap } from "lucide-react";
+import {
+  Activity, CheckCircle, Eye, Lock, Pause, Play, RefreshCw,
+  Settings2, Shield, TrendingDown, TrendingUp, Zap,
+} from "lucide-react";
 import EquityCurve from "./EquityCurve";
 import DrawdownChart from "./DrawdownChart";
 import SectorPie from "./SectorPie";
 import IVZScoreChart from "./IVZScoreChart";
 import TrainingHistory from "./TrainingHistory";
 import MarketAnalysis from "./MarketAnalysis";
+import Guide from "./Guide";
 
 // ── Types ────────────────────────────────────────────────────────────────
 export interface SimStep {
@@ -47,11 +51,17 @@ interface TrainingData {
   ep_epsilons: number[];
 }
 
+// ── Constants ─────────────────────────────────────────────────────────────
 const SECTOR_COLORS: Record<string, string> = {
   XLK: "#3b82f6", XLF: "#10b981", XLV: "#f59e0b", CASH: "#6b7280",
 };
 
-const TABS = ["simulation", "market", "training"] as const;
+const SECTOR_LABELS: Record<string, string> = {
+  XLK: "Technology (XLK)", XLF: "Financials (XLF)",
+  XLV: "Healthcare (XLV)", CASH: "Cash / Safe Harbor",
+};
+
+const TABS = ["simulation", "market", "training", "guide"] as const;
 type Tab = typeof TABS[number];
 
 const SPEEDS = [
@@ -62,17 +72,30 @@ const SPEEDS = [
   { label: "Max",  value: 0.0  },
 ];
 
+const RISK_PRESETS = [
+  { label: "Conservative", threshold: 1.5, color: "text-emerald-400", bg: "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" },
+  { label: "Balanced",     threshold: 2.5, color: "text-blue-400",    bg: "bg-blue-500/20 border-blue-500/40 text-blue-300"     },
+  { label: "Aggressive",   threshold: 3.5, color: "text-red-400",     bg: "bg-red-500/20 border-red-500/40 text-red-300"        },
+];
+
+const ACTION_LABELS = ["XLK", "XLF", "XLV", "CASH"] as const;
+
+const fmt$ = (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+
 // ── MetricCard ────────────────────────────────────────────────────────────
 function MetricCard({
-  label, value, sub, positive, glow,
+  label, value, sub, positive, glow, small,
 }: {
-  label: string; value: string; sub?: string; positive?: boolean; glow?: "blue"|"green"|"red"|"amber";
+  label: string; value: string; sub?: string; positive?: boolean;
+  glow?: "blue" | "green" | "red" | "amber"; small?: boolean;
 }) {
-  const glowClass = glow ? `card-glow-${glow}` : "";
   return (
-    <div className={`card ${glowClass} flex flex-col gap-1 min-w-0`}>
+    <div className={`card ${glow ? `card-glow-${glow}` : ""} flex flex-col gap-1 min-w-0`}>
       <p className="text-[11px] uppercase tracking-widest text-slate-500 font-semibold">{label}</p>
-      <p className={`text-2xl font-bold tabular-nums number-flip ${positive === true ? "text-emerald-400" : positive === false ? "text-red-400" : "text-white"}`}>
+      <p className={`${small ? "text-xl" : "text-2xl"} font-bold tabular-nums number-flip ${
+        positive === true ? "text-emerald-400" : positive === false ? "text-red-400" : "text-white"
+      }`}>
         {value}
       </p>
       {sub && <p className="text-xs text-slate-500 truncate">{sub}</p>}
@@ -87,11 +110,319 @@ function ActionBadge({ name, override }: { name: string; override: boolean }) {
       ⚠ OVERRIDE → CASH
     </span>
   );
-  const cls = `badge-${name.toLowerCase()}`;
   return (
-    <span className={`${cls} px-3 py-1 rounded-full text-xs font-bold tracking-wider`}>
+    <span className={`badge-${name.toLowerCase()} px-3 py-1 rounded-full text-xs font-bold tracking-wider`}>
       {name}
     </span>
+  );
+}
+
+// ── HyperparamsPanel ──────────────────────────────────────────────────────
+function HyperparamsPanel({
+  autonomyMode, setAutonomyMode,
+  investmentAmt, setInvestmentAmt,
+  zThreshold, setZThreshold,
+  locked,
+}: {
+  autonomyMode: "auto" | "review";
+  setAutonomyMode: (m: "auto" | "review") => void;
+  investmentAmt: number;
+  setInvestmentAmt: (n: number) => void;
+  zThreshold: number;
+  setZThreshold: (n: number) => void;
+  locked: boolean;
+}) {
+  const activePreset = RISK_PRESETS.find(p => Math.abs(p.threshold - zThreshold) < 0.01) ?? null;
+
+  return (
+    <div className={`card transition-opacity ${locked ? "opacity-55" : ""}`}>
+      <div className="flex items-center gap-2 mb-5">
+        <Settings2 size={14} className="text-slate-400" />
+        <p className="text-[11px] uppercase tracking-widest text-slate-400 font-semibold">
+          Simulation Parameters
+        </p>
+        {locked && (
+          <span className="ml-auto flex items-center gap-1.5 text-[10px] text-amber-400/70 font-semibold">
+            <Lock size={10} />
+            Locked — reset to change
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+
+        {/* ── Autonomy Mode ── */}
+        <div className="flex flex-col gap-3">
+          <p className="text-xs text-slate-300 font-semibold">Agent Autonomy</p>
+          <div className="flex rounded-lg overflow-hidden border border-border h-10">
+            <button
+              disabled={locked}
+              onClick={() => setAutonomyMode("auto")}
+              className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold transition-all border-r border-border disabled:cursor-not-allowed ${
+                autonomyMode === "auto"
+                  ? "bg-blue-500/25 text-blue-300"
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              <Zap size={11} />
+              Full Auto
+            </button>
+            <button
+              disabled={locked}
+              onClick={() => setAutonomyMode("review")}
+              className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold transition-all disabled:cursor-not-allowed ${
+                autonomyMode === "review"
+                  ? "bg-amber-500/20 text-amber-300"
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              <Eye size={11} />
+              I&apos;ll Review
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-600 leading-relaxed">
+            {autonomyMode === "auto"
+              ? "Agent commits its final pick automatically at the end of the simulation."
+              : "You review and approve (or override) the final recommendation before it locks in."}
+          </p>
+        </div>
+
+        {/* ── Initial Capital ── */}
+        <div className="flex flex-col gap-3">
+          <p className="text-xs text-slate-300 font-semibold">Initial Capital</p>
+          <p className="text-2xl font-bold text-white tabular-nums">{fmt$(investmentAmt)}</p>
+          <input
+            type="range"
+            disabled={locked}
+            min={1000} max={1000000} step={1000}
+            value={investmentAmt}
+            onChange={e => setInvestmentAmt(Number(e.target.value))}
+            className="w-full accent-blue-500 cursor-pointer disabled:cursor-not-allowed"
+          />
+          <div className="flex justify-between text-[10px] text-slate-600">
+            <span>$1K</span><span>$500K</span><span>$1M</span>
+          </div>
+        </div>
+
+        {/* ── Override Z-Threshold ── */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-slate-300 font-semibold">Override Z-Threshold</p>
+            {activePreset && (
+              <span className={`text-[10px] font-bold ${activePreset.color}`}>{activePreset.label}</span>
+            )}
+          </div>
+          <p className="text-2xl font-bold text-white font-mono">{zThreshold.toFixed(1)}<span className="text-slate-500 text-lg">σ</span></p>
+          <input
+            type="range"
+            disabled={locked}
+            min={1.0} max={4.0} step={0.1}
+            value={zThreshold}
+            onChange={e => setZThreshold(Number(e.target.value))}
+            className="w-full accent-blue-500 cursor-pointer disabled:cursor-not-allowed"
+          />
+          <div className="flex gap-1.5 flex-wrap">
+            {RISK_PRESETS.map(p => (
+              <button
+                key={p.label}
+                disabled={locked}
+                onClick={() => setZThreshold(p.threshold)}
+                className={`text-[10px] font-semibold px-2.5 py-1 rounded border transition-all disabled:cursor-not-allowed ${
+                  Math.abs(zThreshold - p.threshold) < 0.01
+                    ? p.bg
+                    : "border-border text-slate-600 hover:text-slate-400 hover:border-slate-600"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+// ── FinalRecommendation ───────────────────────────────────────────────────
+function FinalRecommendation({
+  current, autonomyMode, reviewPending, userDecision,
+  onApprove, onOverride, investmentAmt,
+}: {
+  current: SimStep;
+  autonomyMode: "auto" | "review";
+  reviewPending: boolean;
+  userDecision: string | null;
+  onApprove: () => void;
+  onOverride: (sector: string) => void;
+  investmentAmt: number;
+}) {
+  const agentAction = current.action_name;
+  const finalAction = (userDecision ?? agentAction) as "XLK" | "XLF" | "XLV" | "CASH";
+  const isOverridden = userDecision !== null && userDecision !== agentAction;
+  const isLocked = autonomyMode === "auto" || userDecision !== null;
+  const needsReview = autonomyMode === "review" && reviewPending;
+
+  const sectorColor = SECTOR_COLORS[finalAction];
+  const portfolioValue = investmentAmt * current.portfolio;
+  const gain = portfolioValue - investmentAmt;
+  const maxQ = Math.max(...current.q_values);
+
+  return (
+    <div
+      className="card overflow-hidden"
+      style={{ borderColor: sectorColor + "55", boxShadow: `0 0 40px ${sectorColor}14` }}
+    >
+      {/* Banner */}
+      <div
+        className="flex items-center justify-between -mx-5 -mt-5 px-5 py-3 mb-5"
+        style={{ background: `linear-gradient(90deg, ${sectorColor}1a, transparent 70%)` }}
+      >
+        <div className="flex items-center gap-2">
+          {needsReview
+            ? <Shield size={15} className="text-amber-400 animate-pulse" />
+            : <Lock size={15} style={{ color: sectorColor }} />
+          }
+          <span className="text-[11px] uppercase tracking-widest font-bold text-slate-200">
+            {needsReview ? "Awaiting Your Decision — Review Required" : "Final Investment Decision"}
+          </span>
+        </div>
+        {isOverridden && (
+          <span className="text-[10px] px-2.5 py-0.5 rounded border bg-amber-500/10 border-amber-500/30 text-amber-300 font-semibold">
+            User Override Applied
+          </span>
+        )}
+        {!isOverridden && isLocked && (
+          <span className="text-[10px] px-2.5 py-0.5 rounded border bg-emerald-500/10 border-emerald-500/30 text-emerald-300 font-semibold">
+            Agent Decision Committed
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1px_1fr] gap-6 items-stretch">
+
+        {/* Left — Recommendation */}
+        <div className="flex flex-col gap-5">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">
+              Recommended Allocation — Next Trading Session
+            </p>
+            <div className="flex items-center gap-4">
+              <span
+                className="text-5xl font-extrabold tracking-tighter"
+                style={{ color: sectorColor, textShadow: `0 0 24px ${sectorColor}60` }}
+              >
+                {finalAction}
+              </span>
+              <div>
+                <p className="text-base font-bold text-white">{SECTOR_LABELS[finalAction]}</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {isOverridden
+                    ? `You overrode the agent's pick (${agentAction})`
+                    : "Agent's top Q-value selection"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">Portfolio Value</p>
+              <p className="text-2xl font-bold text-white">{fmt$(portfolioValue)}</p>
+              <p className={`text-sm font-semibold mt-0.5 ${gain >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {gain >= 0 ? "+" : ""}{fmt$(gain)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">Total Return</p>
+              <p className={`text-2xl font-bold ${current.total_return >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {current.total_return >= 0 ? "+" : ""}{current.total_return.toFixed(2)}%
+              </p>
+              <p className={`text-sm font-semibold mt-0.5 ${current.total_return > current.spy_total ? "text-emerald-400" : "text-red-400"}`}>
+                {current.total_return > current.spy_total ? "▲" : "▼"} vs SPY ({current.spy_total >= 0 ? "+" : ""}{current.spy_total.toFixed(2)}%)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="hidden lg:block bg-border" />
+
+        {/* Right — Q-values + approve UI */}
+        <div className="flex flex-col gap-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-3">
+              Agent Confidence (Q-Values)
+            </p>
+            {ACTION_LABELS.map((name, i) => {
+              const isChosen = name === finalAction;
+              const isAgent = name === agentAction;
+              const pct = maxQ > 0 ? (current.q_values[i] / maxQ) * 100 : 0;
+              return (
+                <div key={name} className={`flex items-center gap-2 mb-2 rounded px-1 py-0.5 ${isChosen ? "bg-white/5" : ""}`}>
+                  <span className={`text-[10px] font-mono w-10 ${isChosen ? "text-white font-bold" : "text-slate-500"}`}>
+                    {name}
+                  </span>
+                  <div className="flex-1 bg-slate-800 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${pct}%`, background: isChosen ? SECTOR_COLORS[name] : "#334155" }}
+                    />
+                  </div>
+                  <span className={`text-[10px] font-mono w-14 text-right ${isChosen ? "text-white font-bold" : "text-slate-500"}`}>
+                    {current.q_values[i].toFixed(3)}
+                  </span>
+                  {isChosen && <CheckCircle size={11} style={{ color: SECTOR_COLORS[name], flexShrink: 0 }} />}
+                  {!isChosen && isAgent && isOverridden && (
+                    <span className="text-[9px] text-amber-500/70 w-3">★</span>
+                  )}
+                </div>
+              );
+            })}
+            {isOverridden && (
+              <p className="text-[10px] text-amber-500/70 mt-1">★ original agent pick</p>
+            )}
+          </div>
+
+          {needsReview ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] uppercase tracking-widest text-slate-500">Your Decision</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={onApprove}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 transition-all"
+                >
+                  <CheckCircle size={13} />
+                  Approve ({agentAction})
+                </button>
+                {ACTION_LABELS.filter(a => a !== agentAction).map(a => (
+                  <button
+                    key={a}
+                    onClick={() => onOverride(a)}
+                    className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold border transition-all hover:opacity-80"
+                    style={{
+                      borderColor: SECTOR_COLORS[a] + "60",
+                      color: SECTOR_COLORS[a],
+                      background: SECTOR_COLORS[a] + "12",
+                    }}
+                  >
+                    Override → {a}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-[10px] text-slate-600 bg-slate-800/40 rounded px-3 py-2 leading-relaxed">
+              {isOverridden
+                ? `You overrode the agent's recommendation from ${agentAction} to ${finalAction}.`
+                : autonomyMode === "auto"
+                  ? "Full Autonomy — decision committed automatically based on highest Q-value."
+                  : "You approved the agent's recommendation."}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -120,12 +451,10 @@ function StatePanel({ current }: { current: SimStep | null }) {
     { label: "Z XLV", val: state.z_xlv, color: "#f59e0b" },
   ];
 
-  const actionLabels = ["XLK", "XLF", "XLV", "CASH"];
   const maxQ = Math.max(...q_values);
 
   return (
     <div className="card flex flex-col gap-4 h-full overflow-y-auto">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-[10px] uppercase tracking-widest text-slate-500">Date</p>
@@ -134,7 +463,6 @@ function StatePanel({ current }: { current: SimStep | null }) {
         <ActionBadge name={action_name} override={override} />
       </div>
 
-      {/* Daily return */}
       <div className="flex items-center gap-2">
         {current.daily_return >= 0
           ? <TrendingUp size={14} className="text-emerald-400" />
@@ -147,43 +475,36 @@ function StatePanel({ current }: { current: SimStep | null }) {
 
       <hr className="border-border" />
 
-      {/* IV Features */}
       <div>
         <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">Implied Volatility</p>
         {features.map(f => (
           <div key={f.label} className="flex items-center gap-2 mb-2">
             <span className="text-[10px] font-mono text-slate-400 w-14">{f.label}</span>
             <div className="flex-1 bg-slate-800 rounded-full h-1.5 overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-300"
-                style={{ width: `${Math.min(f.val / f.max, 1) * 100}%`, background: f.color }}
-              />
+              <div className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${Math.min(f.val / f.max, 1) * 100}%`, background: f.color }} />
             </div>
             <span className="text-[10px] font-mono text-slate-300 w-10 text-right">{f.val.toFixed(3)}</span>
           </div>
         ))}
       </div>
 
-      {/* Z-Scores */}
       <div>
         <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">IV Z-Scores (60d)</p>
         {zscores.map(z => {
           const clipped = Math.max(-3, Math.min(3, z.val));
-          const pct = ((clipped + 3) / 6) * 100;
           const danger = Math.abs(z.val) > 2.5;
           return (
             <div key={z.label} className="flex items-center gap-2 mb-2">
               <span className="text-[10px] font-mono text-slate-400 w-14">{z.label}</span>
               <div className="flex-1 bg-slate-800 rounded-full h-1.5 overflow-hidden relative">
                 <div className="absolute left-1/2 w-px h-full bg-slate-600" />
-                <div
-                  className="h-full rounded-full transition-all duration-300"
+                <div className="h-full rounded-full transition-all duration-300"
                   style={{
                     width: `${Math.abs(clipped) / 3 * 50}%`,
                     marginLeft: clipped >= 0 ? "50%" : `${50 - Math.abs(clipped) / 3 * 50}%`,
                     background: danger ? "#ef4444" : z.color,
-                  }}
-                />
+                  }} />
               </div>
               <span className={`text-[10px] font-mono w-12 text-right ${danger ? "text-red-400 font-bold" : "text-slate-300"}`}>
                 {z.val.toFixed(2)}
@@ -201,10 +522,9 @@ function StatePanel({ current }: { current: SimStep | null }) {
 
       <hr className="border-border" />
 
-      {/* Q-Values */}
       <div>
         <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">Q-Values → Decision</p>
-        {actionLabels.map((name, i) => {
+        {ACTION_LABELS.map((name, i) => {
           const isChosen = name === action_name && !override;
           const isCash = name === "CASH" && override;
           const highlight = isChosen || isCash;
@@ -213,10 +533,8 @@ function StatePanel({ current }: { current: SimStep | null }) {
             <div key={name} className={`flex items-center gap-2 mb-2 rounded px-1 ${highlight ? "bg-white/5" : ""}`}>
               <span className={`text-[10px] font-mono w-10 ${highlight ? "text-white font-bold" : "text-slate-400"}`}>{name}</span>
               <div className="flex-1 bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-300"
-                  style={{ width: `${pct}%`, background: highlight ? SECTOR_COLORS[name] : "#334155" }}
-                />
+                <div className="h-full rounded-full transition-all duration-300"
+                  style={{ width: `${pct}%`, background: highlight ? SECTOR_COLORS[name] : "#334155" }} />
               </div>
               <span className={`text-[10px] font-mono w-12 text-right ${highlight ? "text-white font-bold" : "text-slate-400"}`}>
                 {q_values[i].toFixed(3)}
@@ -227,7 +545,6 @@ function StatePanel({ current }: { current: SimStep | null }) {
         })}
       </div>
 
-      {/* Realized vols */}
       <div>
         <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">Realized Vol (20d)</p>
         {[
@@ -238,7 +555,8 @@ function StatePanel({ current }: { current: SimStep | null }) {
           <div key={rv.label} className="flex items-center gap-2 mb-1.5">
             <span className="text-[10px] font-mono text-slate-400 w-14">{rv.label}</span>
             <div className="flex-1 bg-slate-800 rounded-full h-1 overflow-hidden">
-              <div className="h-full rounded-full" style={{ width: `${Math.min(rv.val / 0.04, 1) * 100}%`, background: rv.color }} />
+              <div className="h-full rounded-full"
+                style={{ width: `${Math.min(rv.val / 0.04, 1) * 100}%`, background: rv.color }} />
             </div>
             <span className="text-[10px] font-mono text-slate-300 w-10 text-right">{rv.val.toFixed(4)}</span>
           </div>
@@ -272,13 +590,8 @@ function TradeLog({ history }: { history: SimStep[] }) {
               <tr key={s.step} className="border-b border-border/50 hover:bg-white/2">
                 <td className="py-1 pr-4 text-slate-400">{s.date}</td>
                 <td className="py-1 pr-4">
-                  <span
-                    className="px-2 py-0.5 rounded text-[10px] font-bold"
-                    style={{
-                      background: SECTOR_COLORS[s.action_name] + "33",
-                      color: SECTOR_COLORS[s.action_name],
-                    }}
-                  >
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold"
+                    style={{ background: SECTOR_COLORS[s.action_name] + "33", color: SECTOR_COLORS[s.action_name] }}>
                     {s.action_name}
                   </span>
                 </td>
@@ -314,9 +627,18 @@ export default function Dashboard() {
   const [evalResults, setEvalResults] = useState<EvalResults | null>(null);
   const [trainingData, setTrainingData] = useState<TrainingData | null>(null);
   const [marketData, setMarketData] = useState<Record<string, unknown>[]>([]);
-  const esRef = useRef<EventSource | null>(null);
 
-  // Fetch static data once
+  // Hyperparams
+  const [autonomyMode, setAutonomyMode] = useState<"auto" | "review">("auto");
+  const [investmentAmt, setInvestmentAmt] = useState(10000);
+  const [zThreshold, setZThreshold] = useState(2.5);
+  const [reviewPending, setReviewPending] = useState(false);
+  const [userDecision, setUserDecision] = useState<string | null>(null);
+
+  const esRef = useRef<EventSource | null>(null);
+  const autonomyRef = useRef(autonomyMode);
+  useEffect(() => { autonomyRef.current = autonomyMode; }, [autonomyMode]);
+
   useEffect(() => {
     fetch("/api/eval-results").then(r => r.json()).then(setEvalResults).catch(() => {});
     fetch("/api/training-history").then(r => r.json()).then(setTrainingData).catch(() => {});
@@ -329,10 +651,11 @@ export default function Dashboard() {
     setCurrent(null);
     setIsRunning(true);
     setIsDone(false);
+    setReviewPending(false);
+    setUserDecision(null);
 
     const delay = SPEEDS[speedIdx].value;
-    const url = `/api/inference/stream?delay=${delay}`;
-    const es = new EventSource(url);
+    const es = new EventSource(`/api/inference/stream?delay=${delay}&z_threshold=${zThreshold}`);
     esRef.current = es;
 
     es.onmessage = (e: MessageEvent) => {
@@ -343,15 +666,13 @@ export default function Dashboard() {
         setIsRunning(false);
         setIsDone(true);
         es.close();
+        if (autonomyRef.current === "review") setReviewPending(true);
       }
     };
     es.onerror = () => { setIsRunning(false); es.close(); };
-  }, [speedIdx]);
+  }, [speedIdx, zThreshold]);
 
-  const stop = useCallback(() => {
-    esRef.current?.close();
-    setIsRunning(false);
-  }, []);
+  const stop = useCallback(() => { esRef.current?.close(); setIsRunning(false); }, []);
 
   const reset = useCallback(() => {
     esRef.current?.close();
@@ -359,41 +680,31 @@ export default function Dashboard() {
     setCurrent(null);
     setIsRunning(false);
     setIsDone(false);
+    setReviewPending(false);
+    setUserDecision(null);
   }, []);
 
   useEffect(() => () => { esRef.current?.close(); }, []);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.code === "Space" && e.target === document.body) {
-        e.preventDefault();
-        isRunning ? stop() : start();
-      }
+      if (e.code === "Space" && e.target === document.body) { e.preventDefault(); isRunning ? stop() : start(); }
       if (e.code === "KeyR" && e.target === document.body) reset();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [isRunning, start, stop, reset]);
 
-  // Derived chart data
+  // ── Derived chart data ──
   const equityData = useMemo(() =>
-    history.map(s => ({ date: s.date, agent: s.portfolio, spy: s.spy, override: s.override })),
-    [history]
-  );
+    history.map(s => ({ date: s.date, agent: s.portfolio, spy: s.spy, override: s.override })), [history]);
+
   const drawdownData = useMemo(() =>
-    history.map(s => ({ date: s.date, drawdown: s.max_drawdown })),
-    [history]
-  );
+    history.map(s => ({ date: s.date, drawdown: s.max_drawdown })), [history]);
+
   const zscoreData = useMemo(() =>
-    history.map(s => ({
-      date: s.date,
-      z_xlk: s.state.z_xlk,
-      z_xlf: s.state.z_xlf,
-      z_xlv: s.state.z_xlv,
-    })),
-    [history]
-  );
+    history.map(s => ({ date: s.date, z_xlk: s.state.z_xlk, z_xlf: s.state.z_xlf, z_xlv: s.state.z_xlv })), [history]);
+
   const pieData = useMemo(() => {
     const counts = current?.action_counts ?? { XLK: 0, XLF: 0, XLV: 0, CASH: 0 };
     return [
@@ -404,16 +715,46 @@ export default function Dashboard() {
     ].filter(d => d.value > 0);
   }, [current]);
 
-  // Metrics: use live values if running, else pre-computed
-  const sortino  = current?.sortino     ?? (evalResults ? evalResults.sortino : null);
+  // ── Primary metrics ──
+  const sortino  = current?.sortino     ?? (evalResults?.sortino ?? null);
   const totalRet = current?.total_return ?? (evalResults ? evalResults.total_return * 100 : null);
   const maxDD    = current?.max_drawdown ?? null;
   const spyTotal = current?.spy_total    ?? (evalResults ? evalResults.spy_return * 100 : null);
   const alpha    = totalRet != null && spyTotal != null ? totalRet - spyTotal : null;
-  const overrides = current?.action_counts
-    ? history.filter(s => s.override).length
-    : evalResults?.n_override ?? null;
+  const overrides = current ? history.filter(s => s.override).length : (evalResults?.n_override ?? null);
 
+  // ── Secondary computed metrics ──
+  const winRate = useMemo(() => {
+    if (!history.length) return null;
+    return (history.filter(s => s.daily_return > 0).length / history.length) * 100;
+  }, [history]);
+
+  const avgDailyRet = useMemo(() => {
+    if (!history.length) return null;
+    return history.reduce((s, h) => s + h.daily_return, 0) / history.length;
+  }, [history]);
+
+  const annVol = useMemo(() => {
+    if (history.length < 2 || avgDailyRet == null) return null;
+    const variance = history.reduce((s, h) => s + (h.daily_return - avgDailyRet) ** 2, 0) / (history.length - 1);
+    return Math.sqrt(variance * 252);
+  }, [history, avgDailyRet]);
+
+  const calmarRatio = useMemo(() =>
+    totalRet != null && maxDD != null && maxDD !== 0 ? totalRet / Math.abs(maxDD) : null,
+    [totalRet, maxDD]);
+
+  const sharpeRatio = useMemo(() =>
+    annVol != null && totalRet != null && annVol !== 0 ? (totalRet - 5.25) / annVol : null,
+    [annVol, totalRet]);
+
+  const bestDay = useMemo(() =>
+    history.length ? Math.max(...history.map(s => s.daily_return)) : null, [history]);
+
+  const worstDay = useMemo(() =>
+    history.length ? Math.min(...history.map(s => s.daily_return)) : null, [history]);
+
+  const portfolioValue = current ? investmentAmt * current.portfolio : null;
   const progress = history.length;
   const TOTAL = 251;
 
@@ -424,7 +765,7 @@ export default function Dashboard() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <Activity className="text-blue-400" size={20} />
-            <span className="font-bold text-white text-sm tracking-tight">Sector Rotation RL</span>
+            <span className="font-bold text-white text-sm tracking-tight">Lennox Capital</span>
           </div>
           <span className="text-slate-600">|</span>
           <span className="text-[11px] text-slate-500 uppercase tracking-wider">Risk-Aware DQN · 2024 Holdout</span>
@@ -432,9 +773,7 @@ export default function Dashboard() {
 
         <nav className="flex gap-1">
           {TABS.map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
+            <button key={t} onClick={() => setTab(t)}
               className={`px-4 py-1.5 rounded text-xs font-semibold uppercase tracking-wider transition-all ${
                 tab === t ? "tab-active" : "text-slate-500 hover:text-slate-300"
               }`}
@@ -444,7 +783,7 @@ export default function Dashboard() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {isRunning && (
             <div className="flex items-center gap-1.5 text-emerald-400 text-xs">
               <span className="relative flex h-2 w-2">
@@ -454,10 +793,11 @@ export default function Dashboard() {
               LIVE
             </div>
           )}
-          {isDone && <span className="text-xs text-blue-400 font-semibold">COMPLETE</span>}
-          <span className="text-xs text-slate-600 font-mono">
-            {progress}/{TOTAL} days
-          </span>
+          {isDone && !reviewPending && <span className="text-xs text-blue-400 font-semibold">COMPLETE</span>}
+          {reviewPending && (
+            <span className="text-xs text-amber-400 font-semibold animate-pulse">AWAITING REVIEW</span>
+          )}
+          <span className="text-xs text-slate-600 font-mono">{progress}/{TOTAL} days</span>
         </div>
       </header>
 
@@ -466,6 +806,14 @@ export default function Dashboard() {
         {/* ── Simulation Tab ── */}
         {tab === "simulation" && (
           <>
+            {/* Hyperparameters */}
+            <HyperparamsPanel
+              autonomyMode={autonomyMode} setAutonomyMode={setAutonomyMode}
+              investmentAmt={investmentAmt} setInvestmentAmt={setInvestmentAmt}
+              zThreshold={zThreshold} setZThreshold={setZThreshold}
+              locked={isRunning || isDone}
+            />
+
             {/* Controls */}
             <div className="card flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-2">
@@ -480,8 +828,7 @@ export default function Dashboard() {
                   {isRunning ? <Pause size={14} /> : <Play size={14} />}
                   {isRunning ? "Stop" : isDone ? "Replay" : "Run Simulation"}
                 </button>
-                <button
-                  onClick={reset}
+                <button onClick={reset}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-400 border border-border hover:border-slate-600 hover:text-slate-300 transition-all"
                 >
                   <RefreshCw size={12} />
@@ -492,9 +839,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-slate-500 uppercase tracking-wider">Speed</span>
                 {SPEEDS.map((s, i) => (
-                  <button
-                    key={s.label}
-                    onClick={() => setSpeedIdx(i)}
+                  <button key={s.label} onClick={() => setSpeedIdx(i)}
                     className={`px-2.5 py-1 rounded text-xs font-mono transition-all ${
                       speedIdx === i
                         ? "bg-blue-500/30 text-blue-300 border border-blue-500/50"
@@ -506,9 +851,8 @@ export default function Dashboard() {
                 ))}
               </div>
 
-              {/* Progress bar */}
-              <div className="flex-1 min-w-[200px]">
-                <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
+              <div className="flex-1 min-w-[180px]">
+                <div className="flex justify-between text-[10px] text-slate-500 mb-1">
                   <span>Progress</span>
                   <span className="font-mono">{progress} / {TOTAL} days</span>
                 </div>
@@ -520,56 +864,111 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="text-[11px] text-slate-600">
-                <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-[10px]">Space</kbd> play/stop
-                &nbsp;·&nbsp;
-                <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-[10px]">R</kbd> reset
+              <div className="flex items-center gap-4">
+                {portfolioValue != null && (
+                  <div>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider">Portfolio</p>
+                    <p className="text-sm font-bold text-white">{fmt$(portfolioValue)}</p>
+                  </div>
+                )}
+                <div className="text-[11px] text-slate-600">
+                  <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-[10px]">Space</kbd> play/stop
+                  &nbsp;·&nbsp;
+                  <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-[10px]">R</kbd> reset
+                </div>
               </div>
             </div>
 
-            {/* Metrics row */}
+            {/* ── Final Investment Recommendation ── */}
+            {isDone && current && (
+              <FinalRecommendation
+                current={current}
+                autonomyMode={autonomyMode}
+                reviewPending={reviewPending}
+                userDecision={userDecision}
+                onApprove={() => { setUserDecision(current.action_name); setReviewPending(false); }}
+                onOverride={(sector) => { setUserDecision(sector); setReviewPending(false); }}
+                investmentAmt={investmentAmt}
+              />
+            )}
+
+            {/* ── Primary Metrics ── */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <MetricCard
-                label="Sortino Ratio"
+              <MetricCard label="Sortino Ratio"
                 value={sortino != null ? sortino.toFixed(2) : "—"}
-                sub="Annualised downside-adjusted"
+                sub="Downside-adjusted return"
                 glow={sortino != null && sortino > 2 ? "blue" : undefined}
               />
-              <MetricCard
-                label="Total Return"
+              <MetricCard label="Total Return"
                 value={totalRet != null ? `${totalRet >= 0 ? "+" : ""}${totalRet.toFixed(1)}%` : "—"}
                 positive={totalRet != null ? totalRet > 0 : undefined}
                 sub="2024 holdout set"
                 glow={totalRet != null && totalRet > 0 ? "green" : totalRet != null ? "red" : undefined}
               />
-              <MetricCard
-                label="Max Drawdown"
+              <MetricCard label="Max Drawdown"
                 value={maxDD != null ? `${maxDD.toFixed(1)}%` : "—"}
                 positive={maxDD != null ? false : undefined}
                 sub="Peak-to-trough"
                 glow={maxDD != null && maxDD < -5 ? "red" : undefined}
               />
-              <MetricCard
-                label="SPY Benchmark"
+              <MetricCard label="SPY Benchmark"
                 value={spyTotal != null ? `+${spyTotal.toFixed(1)}%` : "—"}
                 sub="Buy-and-hold S&P 500"
               />
-              <MetricCard
-                label="Alpha"
+              <MetricCard label="Alpha"
                 value={alpha != null ? `${alpha >= 0 ? "+" : ""}${alpha.toFixed(1)}%` : "—"}
                 positive={alpha != null ? alpha > 0 : undefined}
                 sub="vs SPY"
                 glow={alpha != null && alpha > 0 ? "green" : alpha != null ? "red" : undefined}
               />
-              <MetricCard
-                label="Overrides"
+              <MetricCard label="Overrides"
                 value={overrides != null ? String(overrides) : "—"}
-                sub="Vasant Dhar safety triggers"
+                sub="Safety triggers"
                 glow={overrides != null && overrides > 0 ? "amber" : undefined}
               />
             </div>
 
-            {/* Main chart + state panel */}
+            {/* ── Secondary Metrics ── */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <MetricCard label="Win Rate"
+                value={winRate != null ? `${winRate.toFixed(1)}%` : "—"}
+                positive={winRate != null ? winRate > 50 : undefined}
+                sub="% profitable days"
+                small
+              />
+              <MetricCard label="Sharpe Ratio"
+                value={sharpeRatio != null ? sharpeRatio.toFixed(2) : "—"}
+                positive={sharpeRatio != null ? sharpeRatio > 1 : undefined}
+                sub="Ret / total vol (rf 5.25%)"
+                glow={sharpeRatio != null && sharpeRatio > 1.5 ? "blue" : undefined}
+                small
+              />
+              <MetricCard label="Calmar Ratio"
+                value={calmarRatio != null ? calmarRatio.toFixed(2) : "—"}
+                positive={calmarRatio != null ? calmarRatio > 1 : undefined}
+                sub="Return / max drawdown"
+                small
+              />
+              <MetricCard label="Ann. Volatility"
+                value={annVol != null ? `${annVol.toFixed(1)}%` : "—"}
+                sub="Annualised std dev"
+                small
+              />
+              <MetricCard label="Best Day"
+                value={bestDay != null ? `+${bestDay.toFixed(2)}%` : "—"}
+                positive={bestDay != null ? true : undefined}
+                sub="Single session high"
+                small
+              />
+              <MetricCard label="Worst Day"
+                value={worstDay != null ? `${worstDay.toFixed(2)}%` : "—"}
+                positive={worstDay != null ? false : undefined}
+                sub="Single session low"
+                small
+              />
+            </div>
+
+            {/* ── Equity Curve + State Panel ── */}
             <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-4">
               <div className="card min-h-[380px]">
                 <p className="text-[11px] uppercase tracking-widest text-slate-500 font-semibold mb-3">
@@ -580,42 +979,29 @@ export default function Dashboard() {
               <StatePanel current={current} />
             </div>
 
-            {/* Bottom charts */}
+            {/* ── Bottom Charts ── */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="card min-h-[260px]">
-                <p className="text-[11px] uppercase tracking-widest text-slate-500 font-semibold mb-3">
-                  Running Drawdown
-                </p>
+                <p className="text-[11px] uppercase tracking-widest text-slate-500 font-semibold mb-3">Running Drawdown</p>
                 <DrawdownChart data={drawdownData} />
               </div>
               <div className="card min-h-[260px]">
-                <p className="text-[11px] uppercase tracking-widest text-slate-500 font-semibold mb-3">
-                  Sector Allocation
-                </p>
+                <p className="text-[11px] uppercase tracking-widest text-slate-500 font-semibold mb-3">Sector Allocation</p>
                 <SectorPie data={pieData} currentAction={current?.action_name} />
               </div>
               <div className="card min-h-[260px]">
-                <p className="text-[11px] uppercase tracking-widest text-slate-500 font-semibold mb-3">
-                  IV Z-Scores (live)
-                </p>
+                <p className="text-[11px] uppercase tracking-widest text-slate-500 font-semibold mb-3">IV Z-Scores (live)</p>
                 <IVZScoreChart data={zscoreData} />
               </div>
             </div>
 
-            {/* Trade log */}
             {history.length > 0 && <TradeLog history={history} />}
           </>
         )}
 
-        {/* ── Market Analysis Tab ── */}
-        {tab === "market" && (
-          <MarketAnalysis data={marketData} />
-        )}
-
-        {/* ── Training Tab ── */}
-        {tab === "training" && (
-          <TrainingHistory data={trainingData} evalResults={evalResults} />
-        )}
+        {tab === "market" && <MarketAnalysis data={marketData} />}
+        {tab === "training" && <TrainingHistory data={trainingData} evalResults={evalResults} />}
+        {tab === "guide" && <Guide />}
       </main>
     </div>
   );
