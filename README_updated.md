@@ -13,9 +13,9 @@ Rishit Maheshwari · Ishan Malik · Maanas Lalwani
 |--------|-----------|-------------|-------------|
 | **Sortino Ratio** | **5.25** | 2.34 | +2.91 (+124%) |
 | **Sharpe Ratio** | **3.31** | 1.80 | +1.51 (+84%) |
-| **Total Return** | **+51.6%** | +25.3% | +26.3pp |
+| **Total Return** | **+51.6%** | +25.3% | +26.3% |
 | **Max Drawdown** | **-5.3%** | -8.4% | 37% smaller |
-| Override Triggers | 2 | N/A | — |
+| **Override Triggers** | 2 | N/A | N/A |
 
 **Agent beats SPY in all 4 stress-tested market regimes:**
 
@@ -88,39 +88,41 @@ The dashboard starts two servers simultaneously:
 
 ## Dashboard Features
 
-### Tab 1: Live Trading Simulation
-Watch the trained agent make real-time trading decisions through all 251
-trading days of 2024. Powered by Server-Sent Events (SSE) — the backend
-pushes each day's decision to the browser as it's computed.
+### Tab 1: Simulation
 
-Shows for each day:
-- Which sector the agent chose (and why — Q-values displayed)
-- Whether the Vasant Dhar override activated
-- Live portfolio value vs SPY
-- Running Sortino ratio and max drawdown
+- Step through 2024 data day-by-day
+- Real-time portfolio value + sector allocation
+- Interactive charts + trading logs + clear directives on where to invest
+- Manual Hyperparameter Selection + Option to Autonomize Agent
 
-### Tab 2: Performance Dashboard
-Full metrics comparison — agent vs SPY:
-- Cumulative returns chart
-- Drawdown chart
-- Sector allocation over time
-- Key metrics cards (Sortino, Sharpe, Return, Drawdown)
+### Tab 2: Market
 
-### Tab 3: IV Z-Score Chart (Risk Monitor)
-IV z-scores for all 3 sectors over 2020-2024.
-Red shading shows exactly when the safety override triggered.
-COVID spike is clearly visible — all three lines shoot above 2.5 simultaneously.
+- Dataset overview (Train/Test splits, coverage, feature/action space)
+- Implied Volatility (IV) and 60-day rolling IV Z-scores
+- Buy-and-hold cumulative returns vs. SPY benchmark
+- Realized vs. Implied Volatility (Vol Risk Premium)
+- Daily return distributions across sectors
 
-### Tab 4: Market Analysis (Stress Tests)
-Side-by-side agent vs SPY performance across all 4 crisis periods.
+### Tab 3: Training
 
-### Tab 5: Training History
-Loss curves, reward progression, and epsilon decay over 2000 training episodes.
-Proves the agent genuinely learned — not lucky.
+- Test set performance summary (Test Return, Sortino Ratio, vs. SPY)
+- Final action distribution breakdown (Cash vs. Sectors)
+- Live training curves (Reward per episode, Bellman loss, Epsilon decay)
+- Detailed view of Agent Architecture & Hyperparameters
 
-### Tab 6: Guide
-Built-in explanation of RL concepts, IV, and the Vasant Dhar override
-for audiences unfamiliar with the domain.
+### Tab 4: Guide
+
+- IV z-scores for all 3 sectors (2020–24). Project overview and team credits.
+- Plain-English explanation of the Reinforcement Learning agent's mechanics
+- Educational glossary defining key financial metrics (Total Return, Sortino Ratio, Max Drawdown, Alpha, etc.)
+
+---
+
+## RUN the Full Demo with a Single Command
+
+```bash
+bash demo/start.sh
+```
 
 ---
 
