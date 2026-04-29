@@ -187,7 +187,7 @@ python -m src.optuna_tune --trials 10 --retrain --episodes 2000
 ### 7. Launch Demo App
 
 ```bash
-streamlit run demo/app.py
+bash demo/start.sh
 # Opens at http://localhost:8501
 ```
 
