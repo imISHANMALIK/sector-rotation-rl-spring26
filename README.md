@@ -1,4 +1,4 @@
-# Risk-Aware Reinforcement Learning for Sector Rotation
+# Risk-Aware Sector Rotation Bandit
 
 **Team Lennox | DS-GA 3001 Reinforcement Learning | NYU Center for Data Science | Spring 2026**
 
